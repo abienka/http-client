@@ -1,0 +1,21 @@
+{
+    "name": "abienka/http-client",
+    "description": "The PHP HTTP client",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Arkadiusz Bieńka",
+            "email": "arkadiusz.bienka@interia.eu"
+        }
+    ],
+    "require": {
+        "php": "^7.3",
+        "psr/http-client": "^1.0",
+        "nyholm/psr7": "^1.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Abienka\\HttpClient\\": "src/"
+        }
+    }
+}
