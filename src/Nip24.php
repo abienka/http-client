@@ -11,6 +11,7 @@ class Nip24
     private const ID = 'test_id';
     private const KEY = 'test_key';
     private const HASHING = 'sha256';
+    private const INACTIVE_CODE = 9;
     
     /** @var CurlClient */
     protected $curlClient;
@@ -27,10 +28,6 @@ class Nip24
         CurlClient $curlClient,
         Psr17Factory $psr17Factory
     ) {
-        if (!extension_loaded('xml')) {
-            throw new ClientException('The xml extension is required to use the Abienka\HttpClient\Nip24.');
-        };
-        
         $this->curlClient = $curlClient;
         $this->psr17Factory = $psr17Factory;
     }
@@ -48,7 +45,7 @@ class Nip24
         $code = $this->xpath($xml, XmlPathHelper::ERROR_CODE);
         
         if (strlen($code) > 0) {
-            if (9 === $code) {
+            if (self::INACTIVE_CODE === $code) {
                 return false;
             }
             
@@ -125,6 +122,12 @@ class Nip24
         return $xml;
     }
     
+    /**
+     * @param string $method
+     * @param string $url
+     * @return string
+     * @throws Exception
+     */
     protected function auth(string $method, string $url): string
     {
         $u = parse_url($url);
@@ -153,6 +156,11 @@ class Nip24
         return sprintf('MAC id="%s", ts="%s", nonce="%s", mac="%s"', self::ID, $ts, $nonce, $mac);
     }
     
+    /**
+     * @param \SimpleXMLElement $xml
+     * @param string $path
+     * @return string
+     */
     private function xpath(\SimpleXMLElement $xml, string $path): string
     {
         $a = $xml->xpath($path);

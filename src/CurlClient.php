@@ -4,6 +4,8 @@ namespace Abienka\HttpClient;
 
 use Abienka\HttpClient\Exception\ClientException;
 use Abienka\HttpClient\Exception\NetworkException;
+use Abienka\HttpClient\Exception\RequestException;
+use Abienka\HttpClient\Service\CurlService;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -12,6 +14,9 @@ use Psr\Http\Message\StreamFactoryInterface;
 
 class CurlClient implements ClientInterface
 {
+    /** @var CurlService */
+    private $curlService;
+    
     /** @var ResponseFactoryInterface */
     private $responseFactory;
     
@@ -22,20 +27,18 @@ class CurlClient implements ClientInterface
     private $options;
     
     /**
+     * @param CurlService $curlService
      * @param ResponseFactoryInterface $responseFactory
      * @param StreamFactoryInterface $streamFactory
      * @param array $options
-     * @throws ClientException
      */
     public function __construct(
+        CurlService $curlService,
         ResponseFactoryInterface $responseFactory,
         StreamFactoryInterface $streamFactory,
         array $options = []
     ) {
-        if (!extension_loaded('curl')) {
-            throw new ClientException('The cURL extension is required to use the Abienka\HttpClient\CurlClient.');
-        };
-        
+        $this->curlService = $curlService;
         $this->responseFactory = $responseFactory;
         $this->streamFactory = $streamFactory;
         $this->options = $options;
@@ -49,52 +52,48 @@ class CurlClient implements ClientInterface
      */
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
-        $curl = curl_init();
-        if (false === $curl) {
-            throw new ClientException('Unable to initialize a cURL session.');
-        }
+        $this->curlService->reset();
         
-        $this->setCurlOptions($curl, $request);
+        $this->curlService->setOptions($this->getOptions($request));
         
-        $curlResponse = curl_exec($curl); 
+        $result = $this->curlService->execute();
 
-        if (false === $curlResponse) {
-            throw new NetworkException($request, curl_error($curl), curl_errno($curl));
+        if (false === $result) {
+            $this->handleCurlError($request);
         }
         
-        $headerSize = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
-        $headers = substr($curlResponse, 0, $headerSize);
-        $body = substr($curlResponse, $headerSize);
-        
-        $response = $this->responseFactory->createResponse(curl_getinfo($curl, CURLINFO_RESPONSE_CODE));
-        $response = $this->addHeadersToResponse($response, $headers);
-        $response = $response->withBody($this->streamFactory->createStream($body));
-        
-        curl_close($curl);
+        $response = $this->responseFactory->createResponse($this->curlService->getResponseCode());
+        $response = $this->addHeadersToResponse($response, $this->curlService->getResponseHeaders());
+        $response = $response->withBody($this->streamFactory->createStream($this->curlService->getResponseBody()));
         
         return $response;
     }
-    
+
     /**
-     * @param resource $curl
      * @param RequestInterface $request
      * @return void
-     * @throws ClientException
+     * @throws NetworkException
+     * @throws RequestException
      */
-    protected function setCurlOptions($curl, RequestInterface $request): void
+    protected function handleCurlError(RequestInterface $request): void
     {
-        foreach ($this->getOptions($request) as $option => $value) {
-            if (null === $value) {
-                continue;
-            }
-            
-            if(!curl_setopt($curl, $option, $value)) {
-                throw new ClientException(
-                    sprintf('An error occurred while try to set cURL option %s => %s.',
-                    $option,
-                    $value
-                ));
-            }
+        switch ($this->curlService->getErrno()) {
+            case CURLE_COULDNT_CONNECT:
+            case CURLE_COULDNT_RESOLVE_HOST:
+            case CURLE_COULDNT_RESOLVE_PROXY:
+            case CURLE_OPERATION_TIMEOUTED:
+            case CURLE_SSL_CONNECT_ERROR:
+                throw new NetworkException(
+                    $request,
+                    $this->curlService->getError(),
+                    $this->curlService->getErrno()
+                );
+            default:
+                throw new RequestException(
+                    $request,
+                    $this->curlService->getError(),
+                    $this->curlService->getErrno()
+                );
         }
     }
     
@@ -120,20 +119,13 @@ class CurlClient implements ClientInterface
     
     /**
      * @param ResponseInterface $response
-     * @param string $headers
+     * @param array $headers
      * @return ResponseInterface
      */
-    protected function addHeadersToResponse(ResponseInterface $response, string $headers): ResponseInterface
+    protected function addHeadersToResponse(ResponseInterface $response, array $headers): ResponseInterface
     {
-        foreach (explode("\n", $headers) as $header) {
-            $colonPosition = strpos($header, ':');
-            if (false === $colonPosition || 0 === $colonPosition) {
-                continue;
-            }
-            
-            [$name, $value] = explode(':', $header, 2);
-            
-            $response = $response->withAddedHeader(trim($name), trim($value));
+        foreach ($headers as $name => $value) {
+            $response = $response->withHeader($name, $value);
         }
         
         return $response;
