@@ -10,12 +10,23 @@
     ],
     "require": {
         "php": "^7.3",
+        "ext-xml": "*",
+        "ext-curl": "*",
         "psr/http-client": "^1.0",
-        "nyholm/psr7": "^1.2"
+        "nyholm/psr7": "^1.2",
+        "phpunit/phpunit": "^9.1"
     },
     "autoload": {
         "psr-4": {
             "Abienka\\HttpClient\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Abienka\\HttpClient\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit"
     }
 }
