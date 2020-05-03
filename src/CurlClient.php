@@ -21,13 +21,19 @@ class CurlClient implements ClientInterface
     /** @var array */
     private $options;
     
+    /**
+     * @param ResponseFactoryInterface $responseFactory
+     * @param StreamFactoryInterface $streamFactory
+     * @param array $options
+     * @throws ClientException
+     */
     public function __construct(
         ResponseFactoryInterface $responseFactory,
         StreamFactoryInterface $streamFactory,
         array $options = []
     ) {
         if (!extension_loaded('curl')) {
-            throw new \Exception('The cURL extension is required to use the Abienka\HttpClient\CurlClient.');
+            throw new ClientException('The cURL extension is required to use the Abienka\HttpClient\CurlClient.');
         };
         
         $this->responseFactory = $responseFactory;
