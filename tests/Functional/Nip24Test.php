@@ -40,7 +40,7 @@ class Nip24Test extends TestCase
     
     public function testGetInvoiceData()
     {
-        $expoectedInvoiceData = [
+        $expectedInvoiceData = [
             'nip' => '7272445205',
             'name' => '"NETCAT SYSTEMY INFORMATYCZNE" ROBERT JAZGARA',
             'firstname' => 'Robert',
@@ -61,6 +61,6 @@ class Nip24Test extends TestCase
         $this->assertArrayHasKey('uid', $invoiceData);
         unset($invoiceData['uid']);
         
-        $this->assertEquals($expoectedInvoiceData, $invoiceData);
+        $this->assertEquals($expectedInvoiceData, $invoiceData);
     }
 }
